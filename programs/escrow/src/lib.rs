@@ -11,6 +11,7 @@ pub mod escrow {
     pub fn initialize(ctx: Context<Initialize>, data: u64) -> Result<()> {
         ctx.accounts.my_account.data = data;
         ctx.accounts.my_account.authority = ctx.accounts.authority.key();
+        ctx.accounts.my_account.bump = *ctx.bumps.get("my_account").unwrap();
         Ok(())
     }
 
@@ -34,6 +35,7 @@ pub mod escrow {
     }
 
     pub fn withdraw_fee(ctx: Context<WithdrawFee>) -> Result<()> {
+        let bump = &[ctx.accounts.my_account.bump][..];
         invoke_signed(
             &system_instruction::transfer(
                 &ctx.accounts.my_account.to_account_info().key(),
@@ -45,7 +47,7 @@ pub mod escrow {
                 ctx.accounts.to.to_account_info().clone(),
                 ctx.accounts.system_program.to_account_info().clone()
             ],
-            &[&[b"my_account".as_ref()]],
+            &[&[b"my_account".as_ref(), bump][..]],
         )?;
         Ok(())
     }
@@ -57,7 +59,7 @@ pub struct Initialize<'info> {
     #[account(
         init, 
         payer = authority, 
-        space = 8 + 8 + 32,
+        space = 8 + 8 + 32 + 1,
         seeds = [
             b"my_account".as_ref()
         ],
@@ -94,4 +96,5 @@ pub struct WithdrawFee<'info> {
 pub struct MyAccount {
     data: u64,
     authority: Pubkey,
+    bump: u8,
 }
