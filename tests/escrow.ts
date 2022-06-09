@@ -71,7 +71,6 @@ describe("escrow", () => {
       .accounts({
         myAccount: myAccount,
         authority: provider.wallet.publicKey,
-        to: to.publicKey
       })
       .rpc()
 

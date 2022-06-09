@@ -4,7 +4,7 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 pub mod escrow {
-    use anchor_lang::solana_program::{program::{invoke, invoke_signed}, system_instruction};
+    use anchor_lang::solana_program::{program::invoke, system_instruction};
 
     use super::*;
 
@@ -35,20 +35,9 @@ pub mod escrow {
     }
 
     pub fn withdraw_fee(ctx: Context<WithdrawFee>) -> Result<()> {
-        let bump = &[ctx.accounts.my_account.bump][..];
-        invoke_signed(
-            &system_instruction::transfer(
-                &ctx.accounts.my_account.to_account_info().key(),
-                &ctx.accounts.to.to_account_info().key(),
-                1_000,
-            ),
-            &[
-                ctx.accounts.my_account.to_account_info().clone(),
-                ctx.accounts.to.to_account_info().clone(),
-                ctx.accounts.system_program.to_account_info().clone()
-            ],
-            &[&[b"my_account".as_ref(), bump][..]],
-        )?;
+        let from_account = &ctx.accounts.my_account.to_account_info();
+        let to_account = &ctx.accounts.authority.to_account_info();
+        transfer_service_fee_lamports(from_account, to_account, 1_000)?;
         Ok(())
     }
 
@@ -86,9 +75,6 @@ pub struct WithdrawFee<'info> {
     my_account: Account<'info, MyAccount>,
     #[account(mut)]
     authority: Signer<'info>,
-    /// CHECK:
-    #[account(mut)]
-    to: AccountInfo<'info>,
     system_program: Program<'info, System>,
 }
 
@@ -97,4 +83,25 @@ pub struct MyAccount {
     data: u64,
     authority: Pubkey,
     bump: u8,
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("insufficient funds for transaction.")]
+    InsufficientFundsForTransaction,
+}
+
+fn transfer_service_fee_lamports(
+    from_account: &AccountInfo,
+    to_account: &AccountInfo,
+    amount_of_lamports: u64,
+) -> Result<()> {
+    // Does the from account have enough lamports to transfer?
+    if **from_account.try_borrow_lamports()? < amount_of_lamports {
+        return Err(ErrorCode::InsufficientFundsForTransaction.into());
+    }
+    // Debit from_account and credit to_account
+    **from_account.try_borrow_mut_lamports()? -= amount_of_lamports;
+    **to_account.try_borrow_mut_lamports()? += amount_of_lamports;
+    Ok(())
 }
