@@ -34,7 +34,6 @@ pub mod escrow {
     }
 
     pub fn withdraw_fee(ctx: Context<WithdrawFee>) -> Result<()> {
-        let bump_seed = *ctx.bumps.get("my_account").unwrap();
         invoke_signed(
             &system_instruction::transfer(
                 &ctx.accounts.my_account.to_account_info().key(),
@@ -46,7 +45,7 @@ pub mod escrow {
                 ctx.accounts.to.to_account_info().clone(),
                 ctx.accounts.system_program.to_account_info().clone()
             ],
-            &[&[b"my_account".as_ref(), &[bump_seed]]],
+            &[&[b"my_account".as_ref()]],
         )?;
         Ok(())
     }
